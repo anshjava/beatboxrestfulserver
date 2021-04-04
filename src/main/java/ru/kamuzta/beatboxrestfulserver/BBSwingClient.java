@@ -393,9 +393,9 @@ public class BBSwingClient {
                     }
                 }
                 bw.close();
-                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " melody has been saved to file " + file);
+                JOptionPane.showMessageDialog(theFrame, LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " melody has been saved to file " + file);
             } catch (Exception e) {
-                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " couldn't save the melody to file");
+                JOptionPane.showMessageDialog(theFrame, LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " couldn't save the melody to file");
             }
         }
     }
