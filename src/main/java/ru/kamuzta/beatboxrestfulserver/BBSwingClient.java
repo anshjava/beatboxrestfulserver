@@ -277,11 +277,10 @@ public class BBSwingClient {
     public class MySendMessageListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
-            checkConnection();
             if (connectionStatus) {
                 boolean[] melodyToSend = new boolean[256];
                 for (int i = 0; i < 256; i++) {
-                    JCheckBox check = (JCheckBox) checkboxList.get(i);
+                    JCheckBox check = checkboxList.get(i);
                     if (check.isSelected()) {
                         melodyToSend[i] = true;
                     }
@@ -448,6 +447,11 @@ public class BBSwingClient {
             serverIp = JOptionPane.showInputDialog(theFrame, "Введите IP-адрес сервера:", "localhost");
             serverPort = JOptionPane.showInputDialog(theFrame, "Введите порт сервера:", "8080");
             JOptionPane.showMessageDialog(theFrame, checkConnection());
+            //clearing memory from old messages from different server
+            messages.clear();
+            otherSeqsMap.clear();
+            incomingList.setListData(messages);
+
         }
     }
 
@@ -509,7 +513,8 @@ public class BBSwingClient {
                 }
 
             } catch (IOException e) {
-                e.printStackTrace();
+                JOptionPane.showMessageDialog(theFrame, "Connection losted!");
+                connectionStatus = false;
             }
 
             return messages;
