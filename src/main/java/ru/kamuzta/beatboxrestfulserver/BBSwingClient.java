@@ -11,6 +11,7 @@ import java.awt.*;
 import javax.swing.*;
 import java.io.*;
 import javax.sound.midi.*;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -27,10 +28,10 @@ public class BBSwingClient {
 
     JFrame theFrame;
     JPanel mainPanel;
-    JList incomingList;
+    JList<Message> incomingList;
     JTextField userMessage;
     ArrayList<JCheckBox> checkboxList;
-    Vector<Message> messages = new Vector<Message>();
+    Vector<Message> messages = new Vector<>();
     HashMap<String, boolean[]> otherSeqsMap = new HashMap<>();
     Sequencer sequencer;
     Sequence sequence;
@@ -93,7 +94,7 @@ public class BBSwingClient {
         BorderLayout layout = new BorderLayout();
         JPanel background = new JPanel(layout);
         background.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        checkboxList = new ArrayList<JCheckBox>();
+        checkboxList = new ArrayList<>();
 
         JMenuBar menuBar = new JMenuBar();
         JMenu fileMenu = new JMenu("Menu");
@@ -135,7 +136,7 @@ public class BBSwingClient {
         userMessage = new JTextField();
         buttonBox.add(userMessage);
 
-        incomingList = new JList();
+        incomingList = new JList<>();
         incomingList.addListSelectionListener(new MyListSelectionListener());
         incomingList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         JScrollPane theList = new JScrollPane(incomingList);
@@ -210,15 +211,15 @@ public class BBSwingClient {
     }
 
     public void buildTrackAndStart() {
-        ArrayList<Integer> trackList = null;
+        ArrayList<Integer> trackList;
         sequence.deleteTrack(track);
         track = sequence.createTrack();
 
         for (int i = 0; i < 16; i++) {
-            trackList = new ArrayList<Integer>();
+            trackList = new ArrayList<>();
 
             for (int j = 0; j < 16; j++) {
-                JCheckBox jc = (JCheckBox) checkboxList.get(j + (16 * i));
+                JCheckBox jc = checkboxList.get(j + (16 * i));
                 if (jc.isSelected()) {
                     int key = instruments[i];
                     trackList.add(key);
@@ -241,25 +242,20 @@ public class BBSwingClient {
 
     public void changeSequence(boolean[] checkboxState) {
         for (int i = 0; i < 256; i++) {
-            JCheckBox check = (JCheckBox) checkboxList.get(i);
-            if (checkboxState[i]) {
-                check.setSelected(true);
-            } else {
-                check.setSelected(false);
-            }
+            JCheckBox check = checkboxList.get(i);
+            check.setSelected(checkboxState[i]);
         }
     }
 
-    public void makeTracks(ArrayList list) {
-        Iterator it = list.iterator();
+    public void makeTracks(ArrayList<Integer> list) {
         for (int i = 0; i < 16; i++) {
-            Integer num = (Integer) it.next();
+            Integer num = list.get(i);
             if (num != null) {
-                int numKey = num.intValue();
-                track.add(makeEvent(144, 9, numKey, 100, i));
-                track.add(makeEvent(128, 9, numKey, 100, i + 1));
+                track.add(makeEvent(144, 9, num, 100, i));
+                track.add(makeEvent(128, 9, num, 100, i + 1));
             }
         }
+
     }
 
     public MidiEvent makeEvent(int comd, int chan, int one, int two, int tick) {
@@ -291,7 +287,7 @@ public class BBSwingClient {
 
                 try {
                     mapper.writeValue(writer, msg);
-                    byte[] byteMsg = writer.toString().getBytes("UTF-8");
+                    byte[] byteMsg = writer.toString().getBytes(StandardCharsets.UTF_8);
 
                     URL url = new URL("http://" + serverIp + ":" + serverPort + "/sendmessage");
                     HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -355,9 +351,9 @@ public class BBSwingClient {
         @Override
         public void valueChanged(ListSelectionEvent e) {
             if (e.getValueIsAdjusting()) {
-                Message selected = (Message) incomingList.getSelectedValue();
+                Message selected = incomingList.getSelectedValue();
                 if (selected != null) {
-                    boolean[] selectedState = (boolean[]) otherSeqsMap.get(selected.toString());
+                    boolean[] selectedState = otherSeqsMap.get(selected.toString());
                     changeSequence(selectedState);
                     sequencer.stop();
                     buildTrackAndStart();
@@ -378,7 +374,7 @@ public class BBSwingClient {
         private void saveFile(File file) {
             boolean[] melodyToSave = new boolean[256];
             for (int i = 0; i < 256; i++) {
-                JCheckBox check = (JCheckBox) checkboxList.get(i);
+                JCheckBox check = checkboxList.get(i);
                 if (check.isSelected()) {
                     melodyToSave[i] = true;
                 }
@@ -397,9 +393,9 @@ public class BBSwingClient {
                     }
                 }
                 bw.close();
-                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " melody has been saved to file " + file);
+                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " melody has been saved to file " + file);
             } catch (Exception e) {
-                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " couldn't save the melody to file");
+                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " couldn't save the melody to file");
             }
         }
     }
@@ -431,9 +427,9 @@ public class BBSwingClient {
                 sequencer.stop();
                 buildTrackAndStart();
                 br.close();
-                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " melody has been loaded from file " + file);
+                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " melody has been loaded from file " + file);
             } catch (Exception e) {
-                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " couldn't load the melody from " + file);
+                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " couldn't load the melody from " + file);
             }
         }
     }
@@ -498,13 +494,12 @@ public class BBSwingClient {
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     InputStreamReader streamReader = new InputStreamReader(connection.getInputStream());
                     BufferedReader bufferedReader = new BufferedReader(streamReader);
-                    String response = null;
+                    String response;
                     while ((response = bufferedReader.readLine()) != null) {
-                        stringBuilder.append(response + "\n");
-                        System.out.println(stringBuilder.toString());
-                        messages = mapper.readValue(stringBuilder.toString(),new TypeReference<List<Message>>(){});
+                        stringBuilder.append(response).append("\n");
                     }
                     bufferedReader.close();
+                    messages = mapper.readValue(stringBuilder.toString(),new TypeReference<List<Message>>(){});
 
                 } else if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
                     System.out.println("Server returned no messages");
