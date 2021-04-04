@@ -26,16 +26,15 @@ public class BBSwingClient {
     private String serverPort;
     private boolean connectionStatus;
 
-    JFrame theFrame;
-    JPanel mainPanel;
-    JList<Message> incomingList;
-    JTextField userMessage;
-    ArrayList<JCheckBox> checkboxList;
-    Vector<Message> messages = new Vector<>();
-    HashMap<String, boolean[]> otherSeqsMap = new HashMap<>();
-    Sequencer sequencer;
-    Sequence sequence;
-    Track track;
+    private JFrame theFrame;
+    private JList<Message> incomingList;
+    private JTextField userMessage;
+    private ArrayList<JCheckBox> checkboxList;
+    private Vector<Message> messages = new Vector<>(); //TODO change vector to smth
+    private HashMap<String, boolean[]> otherSeqsMap = new HashMap<>();
+    private Sequencer sequencer;
+    private Sequence sequence;
+    private Track track;
 
     private final String[] instrumentNames = {
             "Bass Drum",
@@ -77,18 +76,14 @@ public class BBSwingClient {
     public BBSwingClient() {
         this.setupGui();
         this.setupMidi();
+        new Thread(new RemoteReader()).start();
     }
 
     public static void main(String[] args) {
         BBSwingClient client = new BBSwingClient();
-        client.go();
     }
 
-    public void go() {
-        new Thread(new RemoteReader()).start();
-    }
-
-    public void setupGui() {
+    private void setupGui() {
         theFrame = new JFrame("BeatBox SwingClient");
         theFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         BorderLayout layout = new BorderLayout();
@@ -97,7 +92,6 @@ public class BBSwingClient {
         checkboxList = new ArrayList<>();
 
         JMenuBar menuBar = new JMenuBar();
-        JMenu fileMenu = new JMenu("Menu");
         JMenuItem saveMenuItem = new JMenuItem("Save melody");
         saveMenuItem.addActionListener(new SaveMenuListener());
         JMenuItem loadMenuItem = new JMenuItem("Load melody");
@@ -105,10 +99,10 @@ public class BBSwingClient {
         JMenuItem connectMenuItem = new JMenuItem("Select server");
         connectMenuItem.addActionListener(new ConnectMenuListener());
 
-        fileMenu.add(saveMenuItem);
-        fileMenu.add(loadMenuItem);
-        fileMenu.add(connectMenuItem);
-        menuBar.add(fileMenu);
+        menuBar.add(connectMenuItem);
+        menuBar.add(saveMenuItem);
+        menuBar.add(loadMenuItem);
+
         theFrame.setJMenuBar(menuBar);
 
         Box buttonBox = new Box(BoxLayout.Y_AXIS);
@@ -154,7 +148,7 @@ public class BBSwingClient {
         GridLayout grid = new GridLayout(16, 16);
         grid.setVgap(1);
         grid.setHgap(2);
-        mainPanel = new JPanel(grid);
+        JPanel mainPanel = new JPanel(grid);
         background.add(BorderLayout.CENTER, mainPanel);
 
         for (int i = 0; i < 256; i++) {
@@ -169,7 +163,7 @@ public class BBSwingClient {
         theFrame.setVisible(true);
     }
 
-    public void setupMidi() {
+    private void setupMidi() {
         try {
             sequencer = MidiSystem.getSequencer();
             sequencer.open();
@@ -181,7 +175,7 @@ public class BBSwingClient {
         }
     }
 
-    public String checkConnection() {
+    private String checkConnection() {
         StringBuilder response = new StringBuilder();
         String exceptions = "";
         int responseCode = 0;
@@ -210,7 +204,7 @@ public class BBSwingClient {
 
     }
 
-    public void buildTrackAndStart() {
+    private void buildTrackAndStart() {
         ArrayList<Integer> trackList;
         sequence.deleteTrack(track);
         track = sequence.createTrack();
@@ -240,14 +234,14 @@ public class BBSwingClient {
         }
     }
 
-    public void changeSequence(boolean[] checkboxState) {
+    private void changeSequence(boolean[] checkboxState) {
         for (int i = 0; i < 256; i++) {
             JCheckBox check = checkboxList.get(i);
             check.setSelected(checkboxState[i]);
         }
     }
 
-    public void makeTracks(ArrayList<Integer> list) {
+    private void makeTracks(ArrayList<Integer> list) {
         for (int i = 0; i < 16; i++) {
             Integer num = list.get(i);
             if (num != null) {
@@ -258,7 +252,7 @@ public class BBSwingClient {
 
     }
 
-    public MidiEvent makeEvent(int comd, int chan, int one, int two, int tick) {
+    private MidiEvent makeEvent(int comd, int chan, int one, int two, int tick) {
         MidiEvent event = null;
         try {
             ShortMessage a = new ShortMessage();
@@ -270,7 +264,7 @@ public class BBSwingClient {
         return event;
     }
 
-    public class MySendMessageListener implements ActionListener {
+    private class MySendMessageListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             if (connectionStatus) {
@@ -317,21 +311,21 @@ public class BBSwingClient {
         }
     }
 
-    public class MyPlayListener implements ActionListener {
+    private class MyPlayListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             buildTrackAndStart();
         }
     }
 
-    public class MyStopListener implements ActionListener {
+    private class MyStopListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             sequencer.stop();
         }
     }
 
-    public class MyUpTempoListener implements ActionListener {
+    private class MyUpTempoListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             float tempoFactor = sequencer.getTempoFactor();
@@ -339,7 +333,7 @@ public class BBSwingClient {
         }
     }
 
-    public class MyDownTempoListener implements ActionListener {
+    private class MyDownTempoListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             float tempoFactor = sequencer.getTempoFactor();
@@ -347,7 +341,7 @@ public class BBSwingClient {
         }
     }
 
-    public class MyListSelectionListener implements ListSelectionListener {
+    private class MyListSelectionListener implements ListSelectionListener {
         @Override
         public void valueChanged(ListSelectionEvent e) {
             if (e.getValueIsAdjusting()) {
@@ -362,7 +356,7 @@ public class BBSwingClient {
         }
     }
 
-    public class SaveMenuListener implements ActionListener {
+    private class SaveMenuListener implements ActionListener {
 
         @Override
         public void actionPerformed(ActionEvent e) {
@@ -401,7 +395,7 @@ public class BBSwingClient {
     }
 
 
-    public class LoadMenuListener implements ActionListener {
+    private class LoadMenuListener implements ActionListener {
 
         @Override
         public void actionPerformed(ActionEvent e) {
@@ -435,7 +429,7 @@ public class BBSwingClient {
     }
 
 
-    public class ConnectMenuListener implements ActionListener {
+    private class ConnectMenuListener implements ActionListener {
 
         @Override
         public void actionPerformed(ActionEvent e) {
@@ -452,7 +446,7 @@ public class BBSwingClient {
     }
 
 
-    public class RemoteReader implements Runnable {
+    private class RemoteReader implements Runnable {
 
         @Override
         public void run() {
@@ -478,7 +472,7 @@ public class BBSwingClient {
 
         }
 
-        public List<Message> getChat() {
+        private List<Message> getChat() {
             List<Message> messages = new ArrayList<>();
             ObjectMapper mapper = getJsonMapper();
             StringBuilder stringBuilder = new StringBuilder();
@@ -518,7 +512,7 @@ public class BBSwingClient {
     }
 
 
-    public ObjectMapper getJsonMapper() {
+    private ObjectMapper getJsonMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new ParameterNamesModule())
                 .registerModule(new Jdk8Module())
