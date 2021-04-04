@@ -427,9 +427,9 @@ public class BBSwingClient {
                 sequencer.stop();
                 buildTrackAndStart();
                 br.close();
-                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " melody has been loaded from file " + file);
+                JOptionPane.showMessageDialog(theFrame, LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " melody has been loaded from file " + file);
             } catch (Exception e) {
-                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " couldn't load the melody from " + file);
+                JOptionPane.showMessageDialog(theFrame, LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) + " couldn't load the melody from " + file);
             }
         }
     }
