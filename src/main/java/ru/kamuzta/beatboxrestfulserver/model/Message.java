@@ -1,7 +1,6 @@
 package ru.kamuzta.beatboxrestfulserver.model;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 
@@ -17,6 +16,11 @@ public class Message implements Comparable<Message> {
     private String senderName;
     private String senderMessage;
     private boolean[] senderMelody;
+
+    //no args constructor for JSON
+    public Message() {
+
+    }
 
     public void setSenderTime(LocalDateTime senderTime) {
         this.senderTime = senderTime;
@@ -57,15 +61,10 @@ public class Message implements Comparable<Message> {
         setSenderMelody(senderMelody);
     }
 
-    public Message() {
-
-    }
-
     @Override
     public String toString() {
         return this.getSenderTime().format(DateTimeFormatter.ofPattern("HH:mm")) + " : " + this.getSenderName() + " : " + this.getSenderMessage();
     }
-
 
 
     @Override
@@ -86,14 +85,14 @@ public class Message implements Comparable<Message> {
         return result;
     }
 
+    //To provide storaging messages in order
     @Override
     public int compareTo(Message o) {
         int result;
 
         if (this.equals(o)) {
             result = 0;
-        }
-        else if ((result = this.getSenderTime().compareTo(o.getSenderTime())) == 0) {
+        } else if ((result = this.getSenderTime().compareTo(o.getSenderTime())) == 0) {
             if ((result = this.getSenderName().compareTo(o.getSenderName())) == 0) {
                 result = this.getSenderMessage().compareTo(o.getSenderMessage());
             }

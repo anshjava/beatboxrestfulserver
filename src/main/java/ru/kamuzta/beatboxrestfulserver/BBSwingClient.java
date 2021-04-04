@@ -182,12 +182,13 @@ public class BBSwingClient {
 
     public String checkConnection() {
         StringBuilder response = new StringBuilder();
-        StringBuilder exceptions = new StringBuilder();
+        String exceptions = "";
+        int responseCode = 0;
         try {
             URL url = new URL("http://" + serverIp + ":" + serverPort + "/checkconnection");
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            int responseCode = connection.getResponseCode();
+            responseCode = connection.getResponseCode();
             BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
@@ -195,19 +196,15 @@ public class BBSwingClient {
             }
             in.close();
             connection.disconnect();
-        } catch (ProtocolException e) {
-            exceptions.append(e.getMessage());
-        } catch (MalformedURLException e) {
-            exceptions.append(e.getMessage());
         } catch (IOException e) {
-            exceptions.append(e.getMessage());
+            exceptions =e.getMessage();
         }
-        if (response.toString().contains("Wellcome") && exceptions.length() == 0) {
+        if (responseCode == HttpURLConnection.HTTP_OK) {
             connectionStatus = true;
             return response.toString();
         } else {
             connectionStatus = false;
-            return "Can't connect\n" + exceptions.toString();
+            return "Can't connect\n" + exceptions;
         }
 
     }
@@ -280,6 +277,7 @@ public class BBSwingClient {
     public class MySendMessageListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
+            checkConnection();
             if (connectionStatus) {
                 boolean[] melodyToSend = new boolean[256];
                 for (int i = 0; i < 256; i++) {

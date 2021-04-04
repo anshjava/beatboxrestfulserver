@@ -23,8 +23,11 @@ public class Controller {
     public ResponseEntity<?> sendMessage(@RequestBody Message message) {
         if (message != null) {
             service.sendMessage(message);
+            return new ResponseEntity<>(HttpStatus.CREATED);
+        } else {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
-        return new ResponseEntity<>(HttpStatus.CREATED);
+
     }
 
     @GetMapping(value = "/getchat")
