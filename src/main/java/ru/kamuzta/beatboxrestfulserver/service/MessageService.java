@@ -8,5 +8,6 @@ public interface MessageService {
 
 void sendMessage(Message message);
 List<Message> getChat();
+String checkConnection();
 
 }

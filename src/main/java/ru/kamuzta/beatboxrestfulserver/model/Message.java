@@ -1,11 +1,18 @@
 package ru.kamuzta.beatboxrestfulserver.model;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
+
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Objects;
 
+@JsonAutoDetect
 public class Message implements Comparable<Message> {
+    @JsonSerialize(using = LocalDateTimeSerializer.class)
     private LocalDateTime senderTime;
     private String senderName;
     private String senderMessage;
@@ -48,6 +55,10 @@ public class Message implements Comparable<Message> {
         setSenderName(senderName);
         setSenderMessage(senderMessage);
         setSenderMelody(senderMelody);
+    }
+
+    public Message() {
+
     }
 
     @Override

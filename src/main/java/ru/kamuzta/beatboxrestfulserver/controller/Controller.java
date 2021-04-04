@@ -21,7 +21,9 @@ public class Controller {
 
     @PostMapping(value = "/sendmessage")
     public ResponseEntity<?> sendMessage(@RequestBody Message message) {
-        service.sendMessage(message);
+        if (message != null) {
+            service.sendMessage(message);
+        }
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
@@ -32,6 +34,15 @@ public class Controller {
         return messages != null &&  !messages.isEmpty()
                 ? new ResponseEntity<>(messages, HttpStatus.OK)
                 : new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    @GetMapping(value = "/checkconnection")
+    public ResponseEntity<String> checkConnection() {
+        final String greeting = service.checkConnection();
+
+        return greeting != null
+                ? new ResponseEntity<>(greeting, HttpStatus.OK)
+                : new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
 }

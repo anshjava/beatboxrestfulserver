@@ -1,5 +1,10 @@
 package ru.kamuzta.beatboxrestfulserver;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import ru.kamuzta.beatboxrestfulserver.model.Message;
 
 import java.awt.*;
@@ -11,12 +16,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.awt.event.*;
 import java.net.*;
+import java.util.List;
 import javax.swing.event.*;
 
 public class BBSwingClient {
     private String userName;
     private String serverIp;
     private String serverPort;
+    private boolean connectionStatus;
 
     JFrame theFrame;
     JPanel mainPanel;
@@ -24,11 +31,7 @@ public class BBSwingClient {
     JTextField userMessage;
     ArrayList<JCheckBox> checkboxList;
     Vector<Message> messages = new Vector<Message>();
-    Socket sock;
-    ObjectOutputStream out;
-    ObjectInputStream in;
-    Thread remote;
-    HashMap<String, boolean[]> otherSeqsMap = new HashMap<String, boolean[]>();
+    HashMap<String, boolean[]> otherSeqsMap = new HashMap<>();
     Sequencer sequencer;
     Sequence sequence;
     Track track;
@@ -70,20 +73,22 @@ public class BBSwingClient {
             63
     };
 
-    public BBSwingClient(String userName, String serverIp, String serverPort) {
-        this.userName = userName;
-        this.serverIp = serverIp;
-        this.serverPort = serverPort;
+    public BBSwingClient() {
+        this.setupGui();
+        this.setupMidi();
     }
 
     public static void main(String[] args) {
-        BBSwingClient client = new BBSwingClient("Anonymous", "127.0.0.1", "8080");
-        client.setupGui();
-        client.setupMidi();
+        BBSwingClient client = new BBSwingClient();
+        client.go();
+    }
+
+    public void go() {
+        new Thread(new RemoteReader()).start();
     }
 
     public void setupGui() {
-        theFrame = new JFrame("BeatBox");
+        theFrame = new JFrame("BeatBox SwingClient");
         theFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         BorderLayout layout = new BorderLayout();
         JPanel background = new JPanel(layout);
@@ -96,23 +101,20 @@ public class BBSwingClient {
         saveMenuItem.addActionListener(new SaveMenuListener());
         JMenuItem loadMenuItem = new JMenuItem("Load melody");
         loadMenuItem.addActionListener(new LoadMenuListener());
-        JMenuItem connectMenuItem = new JMenuItem("Connect to server");
+        JMenuItem connectMenuItem = new JMenuItem("Select server");
         connectMenuItem.addActionListener(new ConnectMenuListener());
-        JMenuItem disconnectMenuItem = new JMenuItem("Disconnect from server");
-        disconnectMenuItem.addActionListener(new DisconnectMenuListener());
 
         fileMenu.add(saveMenuItem);
         fileMenu.add(loadMenuItem);
         fileMenu.add(connectMenuItem);
-        fileMenu.add(disconnectMenuItem);
         menuBar.add(fileMenu);
         theFrame.setJMenuBar(menuBar);
 
         Box buttonBox = new Box(BoxLayout.Y_AXIS);
 
-        JButton start = new JButton("Start");
-        start.addActionListener(new MyStartListener());
-        buttonBox.add(start);
+        JButton play = new JButton("Play");
+        play.addActionListener(new MyPlayListener());
+        buttonBox.add(play);
 
         JButton stop = new JButton("Stop");
         stop.addActionListener(new MyStopListener());
@@ -126,9 +128,9 @@ public class BBSwingClient {
         downTempo.addActionListener(new MyDownTempoListener());
         buttonBox.add(downTempo);
 
-        JButton sendIt = new JButton("Send It");
-        sendIt.addActionListener(new MySendItListener());
-        buttonBox.add(sendIt);
+        JButton sendMessage = new JButton("Send Message");
+        sendMessage.addActionListener(new MySendMessageListener());
+        buttonBox.add(sendMessage);
 
         userMessage = new JTextField();
         buttonBox.add(userMessage);
@@ -178,18 +180,36 @@ public class BBSwingClient {
         }
     }
 
-    public void setupNetwork() {
+    public String checkConnection() {
+        StringBuilder response = new StringBuilder();
+        StringBuilder exceptions = new StringBuilder();
         try {
-            sock = new Socket(serverIp, 4242);
-            out = new ObjectOutputStream(sock.getOutputStream());
-            out.writeObject(this.userName);
-            in = new ObjectInputStream(sock.getInputStream());
-            remote = new Thread(new RemoteReader());
-            remote.start();
-            System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " Connected to server " + serverIp + ":4242 successfully");
-        } catch (Exception e) {
-            System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " couldn't connect - you'll have to play alone");
+            URL url = new URL("http://" + serverIp + ":" + serverPort + "/checkconnection");
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            int responseCode = connection.getResponseCode();
+            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+            in.close();
+            connection.disconnect();
+        } catch (ProtocolException e) {
+            exceptions.append(e.getMessage());
+        } catch (MalformedURLException e) {
+            exceptions.append(e.getMessage());
+        } catch (IOException e) {
+            exceptions.append(e.getMessage());
         }
+        if (response.toString().contains("Wellcome") && exceptions.length() == 0) {
+            connectionStatus = true;
+            return response.toString();
+        } else {
+            connectionStatus = false;
+            return "Can't connect\n" + exceptions.toString();
+        }
+
     }
 
     public void buildTrackAndStart() {
@@ -204,7 +224,7 @@ public class BBSwingClient {
                 JCheckBox jc = (JCheckBox) checkboxList.get(j + (16 * i));
                 if (jc.isSelected()) {
                     int key = instruments[i];
-                    trackList.add(new Integer(key));
+                    trackList.add(key);
                 } else {
                     trackList.add(null);
                 }
@@ -257,10 +277,10 @@ public class BBSwingClient {
         return event;
     }
 
-    public class MySendItListener implements ActionListener {
+    public class MySendMessageListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
-            if (sock != null) {
+            if (connectionStatus) {
                 boolean[] melodyToSend = new boolean[256];
                 for (int i = 0; i < 256; i++) {
                     JCheckBox check = (JCheckBox) checkboxList.get(i);
@@ -269,22 +289,42 @@ public class BBSwingClient {
                     }
                 }
                 Message msg = new Message(LocalDateTime.now(), userName, userMessage.getText(), melodyToSend);
-                try {
-                    out.writeObject(msg);
-                    System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " message sended to the server");
+                StringWriter writer = new StringWriter();
+                ObjectMapper mapper = getJsonMapper();
 
-                } catch (Exception ex) {
-                    System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " could not send message to the server");
-                    ex.printStackTrace();
+                try {
+                    mapper.writeValue(writer, msg);
+                    byte[] byteMsg = writer.toString().getBytes("UTF-8");
+
+                    URL url = new URL("http://" + serverIp + ":" + serverPort + "/sendmessage");
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setDoOutput(true);
+                    connection.setDoInput(true);
+                    connection.setRequestMethod("POST");
+                    connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                    connection.setRequestProperty("Content-Length", Integer.toString(byteMsg.length));
+                    connection.connect();
+                    OutputStream os = connection.getOutputStream();
+                    os.write(byteMsg);
+                    os.flush();
+                    os.close();
+
+                    if (connection.getResponseCode() != HttpURLConnection.HTTP_CREATED) {
+                        JOptionPane.showMessageDialog(theFrame, "Failed : HTTP error code : "
+                                + connection.getResponseCode());
+                    }
+                    connection.disconnect();
+                } catch (IOException malformedURLException) {
+                    malformedURLException.printStackTrace();
                 }
                 userMessage.setText("");
             } else {
-                JOptionPane.showMessageDialog(theFrame, "Нет соединения с сервером");
+                JOptionPane.showMessageDialog(theFrame, "There is no connection to server!");
             }
         }
     }
 
-    public class MyStartListener implements ActionListener {
+    public class MyPlayListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             buildTrackAndStart();
@@ -337,35 +377,36 @@ public class BBSwingClient {
             fileSave.showSaveDialog(theFrame);
             saveFile(fileSave.getSelectedFile());
         }
-    }
 
-    private void saveFile(File file) {
-        boolean[] melodyToSave = new boolean[256];
-        for (int i = 0; i < 256; i++) {
-            JCheckBox check = (JCheckBox) checkboxList.get(i);
-            if (check.isSelected()) {
-                melodyToSave[i] = true;
+        private void saveFile(File file) {
+            boolean[] melodyToSave = new boolean[256];
+            for (int i = 0; i < 256; i++) {
+                JCheckBox check = (JCheckBox) checkboxList.get(i);
+                if (check.isSelected()) {
+                    melodyToSave[i] = true;
+                }
             }
-        }
-        try {
-            BufferedWriter bw = new BufferedWriter(new FileWriter(file));
-            for (int i = 0; i < 16; i++) {
-                for (int j = 0; j < 16; j++) {
-                    bw.write(String.valueOf(melodyToSave[j + (16 * i)]));
-                    if (j != 15) {
-                        bw.write(";");
+            try {
+                BufferedWriter bw = new BufferedWriter(new FileWriter(file));
+                for (int i = 0; i < 16; i++) {
+                    for (int j = 0; j < 16; j++) {
+                        bw.write(String.valueOf(melodyToSave[j + (16 * i)]));
+                        if (j != 15) {
+                            bw.write(";");
+                        }
+                    }
+                    if (i != 15) {
+                        bw.write("\n");
                     }
                 }
-                if (i != 15) {
-                    bw.write("\n");
-                }
+                bw.close();
+                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " melody has been saved to file " + file);
+            } catch (Exception e) {
+                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " couldn't save the melody to file");
             }
-            bw.close();
-            System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " melody has been saved to file " + file);
-        } catch (Exception e) {
-            System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " couldn't save the melody to file");
         }
     }
+
 
     public class LoadMenuListener implements ActionListener {
 
@@ -375,93 +416,117 @@ public class BBSwingClient {
             fileLoad.showOpenDialog(theFrame);
             loadFile(fileLoad.getSelectedFile());
         }
-    }
 
-    private void loadFile(File file) {
-        boolean[] arrayToLoad = new boolean[256];
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(file));
-            String line;
-            String[] flags;
-            for (int i = 0; i < 16; i++) {
-                line = br.readLine();
-                flags = line.split(";");
-                for (int j = 0; j < 16; j++) {
-                    arrayToLoad[j + (16 * i)] = Boolean.parseBoolean(flags[j]);
+        private void loadFile(File file) {
+            boolean[] arrayToLoad = new boolean[256];
+            try {
+                BufferedReader br = new BufferedReader(new FileReader(file));
+                String line;
+                String[] flags;
+                for (int i = 0; i < 16; i++) {
+                    line = br.readLine();
+                    flags = line.split(";");
+                    for (int j = 0; j < 16; j++) {
+                        arrayToLoad[j + (16 * i)] = Boolean.parseBoolean(flags[j]);
+                    }
                 }
+                changeSequence(arrayToLoad);
+                sequencer.stop();
+                buildTrackAndStart();
+                br.close();
+                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " melody has been loaded from file " + file);
+            } catch (Exception e) {
+                System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " couldn't load the melody from " + file);
             }
-            changeSequence(arrayToLoad);
-            sequencer.stop();
-            buildTrackAndStart();
-            br.close();
-            System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " melody has been loaded from file " + file);
-        } catch (Exception e) {
-            System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " couldn't load the melody from " + file);
         }
     }
+
 
     public class ConnectMenuListener implements ActionListener {
 
         @Override
         public void actionPerformed(ActionEvent e) {
-            if (sock == null) {
-                userName = JOptionPane.showInputDialog(theFrame, "Введите Ваше имя:");
-                serverIp = JOptionPane.showInputDialog(theFrame, "Введите IP-адрес сервера:");
-                setupNetwork();
-            } else {
-                JOptionPane.showMessageDialog(theFrame, "Соединение уже установлено");
-            }
+            userName = JOptionPane.showInputDialog(theFrame, "Введите Ваше имя:", "Andrey");
+            serverIp = JOptionPane.showInputDialog(theFrame, "Введите IP-адрес сервера:", "localhost");
+            serverPort = JOptionPane.showInputDialog(theFrame, "Введите порт сервера:", "8080");
+            JOptionPane.showMessageDialog(theFrame, checkConnection());
         }
     }
 
-    public class DisconnectMenuListener implements ActionListener {
-
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            if (sock != null) {
-                try {
-                    in.close();
-                    out.close();
-                    sock = null;
-                    remote.interrupt();
-                } catch (IOException ioe) {
-
-                }
-            } else {
-                JOptionPane.showMessageDialog(theFrame, "Нет активного соединения");
-            }
-        }
-    }
 
     public class RemoteReader implements Runnable {
-        Message msg = null;
 
         @Override
         public void run() {
-            try {
-                while (!Thread.currentThread().isInterrupted()) {
-                    while ((msg = (Message) in.readObject()) != null) {
-                        System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " got an message from " + msg.getSenderName());
-                        otherSeqsMap.put(msg.toString(), msg.getSenderMelody());
-                        messages.add(msg);
+            while (!Thread.currentThread().isInterrupted()) {
+                if (connectionStatus) {
+                    List<Message> remoteMessages = getChat();
+                    if (remoteMessages.size() > messages.size()) {
+                        messages.clear();
+                        otherSeqsMap.clear();
+                        for (Message msg : remoteMessages) {
+                            otherSeqsMap.put(msg.toString(), msg.getSenderMelody());
+                        }
+                        messages.addAll(remoteMessages);
                         incomingList.setListData(messages);
                     }
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+        }
+
+        public List<Message> getChat() {
+            List<Message> messages = new ArrayList<>();
+            ObjectMapper mapper = getJsonMapper();
+            StringBuilder stringBuilder = new StringBuilder();
+            try {
+                URL url = new URL("http://" + serverIp + ":" + serverPort + "/getchat");
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setDoOutput(true);
+                connection.setDoInput(true);
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("Accept", "application/json; charset=UTF-8");
+                connection.connect();
+                int responseCode = connection.getResponseCode();
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    InputStreamReader streamReader = new InputStreamReader(connection.getInputStream());
+                    BufferedReader bufferedReader = new BufferedReader(streamReader);
+                    String response = null;
+                    while ((response = bufferedReader.readLine()) != null) {
+                        stringBuilder.append(response + "\n");
+                        System.out.println(stringBuilder.toString());
+                        messages = mapper.readValue(stringBuilder.toString(),new TypeReference<List<Message>>(){});
+                    }
+                    bufferedReader.close();
+
+                } else if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                    System.out.println("Server returned no messages");
+                } else {
+                    System.out.println("Some error happened: " + responseCode);
                 }
 
-            } catch (SocketException se) {
-                try {
-                    in.close();
-                    out.close();
-                    sock = null;
-                    System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm")) + " you have been disconnected from server " + serverIp);
-                } catch (IOException e) {
-
-                }
-
-            } catch (Exception e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
+
+            return messages;
         }
+
+    }
+
+
+    public ObjectMapper getJsonMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new ParameterNamesModule())
+                .registerModule(new Jdk8Module())
+                .registerModule(new JavaTimeModule());
+        mapper.findAndRegisterModules();
+        return mapper;
     }
 }
 
