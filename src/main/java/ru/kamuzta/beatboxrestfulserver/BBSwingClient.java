@@ -434,8 +434,8 @@ public class BBSwingClient {
         @Override
         public void actionPerformed(ActionEvent e) {
             userName = JOptionPane.showInputDialog(theFrame, "Введите Ваше имя:", "Andrey");
-            serverIp = JOptionPane.showInputDialog(theFrame, "Введите IP-адрес сервера:", "localhost");
-            serverPort = JOptionPane.showInputDialog(theFrame, "Введите порт сервера:", "8080");
+            serverIp = JOptionPane.showInputDialog(theFrame, "Введите IP-адрес сервера:", "beatboxrestfulserver.kamuzta.ru");
+            serverPort = JOptionPane.showInputDialog(theFrame, "Введите порт сервера:", "80");
             JOptionPane.showMessageDialog(theFrame, checkConnection());
             //clearing memory from old messages from different server
             messages.clear();

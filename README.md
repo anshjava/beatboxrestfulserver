@@ -2,7 +2,7 @@
 BeatBox RESTful Server
 
 Client-Server chat.
-Server is on Spring Boot RESTful
+Server is on Spring Boot RESTful.
 Client is on Swing gui.
 You can send messages and create midi melodies together.
 The main idea got from book "Head First Java" by Kathy Sierra and Bert Bates. And lot's of functions were added.
