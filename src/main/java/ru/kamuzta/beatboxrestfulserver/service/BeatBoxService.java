@@ -5,20 +5,32 @@ import ru.kamuzta.beatboxrestfulserver.model.Message;
 import java.util.*;
 
 @Service
-public class BeatBoxService implements MessageService{
+public class BeatBoxService{
     private List<Message> messages = new ArrayList<>();
 
-    @Override
+    /**
+     * Send new message to server
+     * endpoint /sendmessage
+     * @param message - message to send in JSON
+     */
     public void sendMessage(Message message) {
         messages.add(message);
     }
 
-    @Override
+    /**
+     * Return all messages to client
+     * endpoint /getchat
+     * @return list of messages in JSON
+     */
     public List<Message> getChat() {
         return messages;
     }
 
-    @Override
+    /**
+     * Checking server status
+     * endpoint /checkconnection
+     * @return greetig_message
+     */
     public String checkConnection() {
         return "Wellcome to BeatBoxRESTfulServer";
     }
