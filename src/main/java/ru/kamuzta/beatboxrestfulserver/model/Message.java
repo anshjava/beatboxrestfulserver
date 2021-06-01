@@ -76,7 +76,7 @@ public class Message implements Comparable<Message> {
         return sb.toString();
     }
 
-    public boolean[] convertTextToSenderMelody(String text) {
+    public static boolean[] convertTextToSenderMelody(String text) {
         text = text.replaceAll("\n",";");
         String[] flags = text.split(";");
         boolean[] result = new boolean[flags.length];
